@@ -1,0 +1,10 @@
+{
+  "appId": "com.pezzadox.pokerfacelab",
+  "appName": "Poker Face Lab",
+  "webDir": "www",
+  "backgroundColor": "#12102a",
+  "android": {
+    "allowMixedContent": false,
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
+}

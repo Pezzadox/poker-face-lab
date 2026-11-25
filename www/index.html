@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poker Face Lab</title>
+<link rel="icon" href="data:,">
+<style>
+/* fonts ship with the app, so it works offline and contacts no font server */
+@font-face{font-family:"Bricolage Grotesque";src:url(fonts/bricolage-grotesque.woff2) format("woff2");font-weight:200 800;font-display:swap}
+@font-face{font-family:"Figtree";src:url(fonts/figtree-400.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Figtree";src:url(fonts/figtree-500.woff2) format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Figtree";src:url(fonts/figtree-700.woff2) format("woff2");font-weight:700;font-display:swap}
+</style>
+<style>
+:root{
+  /* layout: one column on phones (stage, gauge, readouts), stage left + instruments right on wide screens */
+  --ink:#12102a; --panel:#1c1940; --panel2:#252152; --line:#353074;
+  --text:#f0ecff; --muted:#aaa4d8; --wire:#b9c6ff; --accent:#ff7ac3;
+  --calm:#43e0a0; --stir:#ffb84d; --hot:#ff5468;
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--ink);color:var(--text);font-family:var(--body);font-size:16px;line-height:1.45;
+  background-image:radial-gradient(900px 500px at 85% -10%,rgba(255,122,195,.13),transparent 60%),radial-gradient(700px 500px at -10% 10%,rgba(100,120,255,.16),transparent 60%);
+  background-repeat:no-repeat}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-direction:column;gap:4px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,7vw,44px);line-height:1;margin:0;letter-spacing:-.02em}
+h1 span{color:var(--accent)}
+.tag{color:var(--muted);margin:0;max-width:60ch}
+h2{font-family:var(--display);font-weight:600;font-size:17px;margin:0;text-wrap:balance}
+.note{display:flex;gap:10px;align-items:flex-start;background:rgba(255,184,77,.1);border:1px solid rgba(255,184,77,.4);border-radius:12px;padding:10px 12px;font-size:14px}
+.note b{color:var(--stir)}
+.grid{display:grid;gap:16px;grid-template-columns:1fr}
+.side{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (min-width:860px){.grid{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:start}.stageCard{position:sticky;top:16px}}
+.card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.badge{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);background:var(--muted);border-radius:99px;padding:2px 8px;white-space:nowrap}
+.badge[hidden]{display:none}
+.stage{position:relative;border-radius:12px;overflow:hidden;background:#0b0a1c;line-height:0}
+#view{width:100%;height:auto;display:block}
+.chip{position:absolute;left:10px;top:10px;line-height:1.2;font-size:13px;font-weight:700;background:rgba(18,16,42,.78);border:1px solid var(--line);border-radius:99px;padding:5px 10px;display:flex;align-items:center;gap:7px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.chip[data-s="track"] .dot{background:var(--calm);box-shadow:0 0 8px var(--calm)}
+.chip[data-s="calib"] .dot{background:var(--stir);box-shadow:0 0 8px var(--stir)}
+.chip[data-s="lost"] .dot{background:var(--hot)}
+.controls{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:inherit;font-weight:700;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#2a0a1c}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,label.btn:focus-within{outline:3px solid var(--wire);outline-offset:2px}
+.btn[hidden]{display:none}
+.pick{position:relative;overflow:hidden}
+.pick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:40px}
+.pick:focus-within{outline:3px solid var(--wire);outline-offset:2px}
+#vid{position:absolute;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.gaugeBox{display:flex;flex-direction:column;align-items:center;gap:2px}
+#gauge{width:min(100%,320px);height:auto;display:block}
+.gnum{font-family:var(--display);font-weight:800;font-size:44px;fill:var(--text);font-variant-numeric:tabular-nums}
+.gstate{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:-.01em}
+.gcap{font-size:13px;color:var(--muted);text-align:center;margin:0;max-width:44ch}
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:grid;grid-template-columns:92px 1fr 42px;gap:10px;align-items:center;font-size:14px}
+.bar{height:10px;border-radius:99px;background:#0f0d26;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:99px;background:var(--wire);transition:width .15s linear}
+.row .v{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media (min-width:520px){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile{background:var(--panel2);border-radius:10px;padding:8px 10px}
+.tile b{display:block;font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums}
+.tile span{font-size:12px;color:var(--muted)}
+#tl{width:100%;height:96px;display:block;border-radius:10px;background:#0f0d26}
+.events{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.events li{display:grid;grid-template-columns:44px 1fr;gap:10px;background:var(--panel2);border-radius:10px;padding:8px 10px;font-size:14px}
+.events time{color:var(--muted);font-variant-numeric:tabular-nums}
+.events b{display:block}
+.events small{color:var(--muted);font-size:13px}
+.empty{color:var(--muted);font-size:14px;margin:0}
+footer{color:var(--muted);font-size:13px;display:flex;flex-direction:column;gap:6px;max-width:70ch}
+footer p{margin:0}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Poker Face <span>Lab</span></h1>
+    <p class="tag">Watch a face react, moment by moment. A live wireframe, a reaction gauge and a science check on the old body-language tales.</p>
+  </header>
+
+  <div class="note"><span aria-hidden="true">&#9888;</span><div><b>For fun and curiosity.</b> This measures how much a face moves. It cannot tell you whether someone is lying. Use it on yourself or on people who have agreed.</div></div>
+
+  <div class="grid">
+    <section class="card stageCard" aria-label="Face view">
+      <div class="stage">
+        <canvas id="view" width="480" height="600"></canvas>
+        <div class="chip" id="chip" data-s="demo"><span class="dot"></span><span id="chipText">Demo face</span></div>
+      </div>
+      <div class="controls">
+        <span class="btn primary pick">Upload a clip<input type="file" id="file" accept="video/*" aria-label="Upload a clip"></span>
+        <span class="btn pick" id="recBtn" hidden>Record with camera<input type="file" id="rec" accept="video/*" capture="user" aria-label="Record with camera"></span>
+        <button class="btn" id="camBtn" type="button" hidden>Use camera</button>
+        <button class="btn" id="playBtn" type="button" hidden>Pause</button>
+        <button class="btn" id="againBtn" type="button" hidden>Restart</button>
+      </div>
+      <p class="hint" id="hint">Loading the face model&hellip;</p>
+      <video id="vid" playsinline webkit-playsinline muted preload="auto"></video>
+    </section>
+
+    <div class="side">
+      <section class="card" aria-label="Reaction gauge">
+        <div class="head"><h2>Reaction gauge</h2><span class="badge" data-demo>Example</span></div>
+        <div class="gaugeBox">
+          <svg id="gauge" viewBox="0 0 200 152" role="img" aria-label="Reaction gauge">
+            <path id="arcCalm" fill="none" stroke="var(--calm)" stroke-width="14"/>
+            <path id="arcStir" fill="none" stroke="var(--stir)" stroke-width="14"/>
+            <path id="arcHot" fill="none" stroke="var(--hot)" stroke-width="14"/>
+            <g id="needle"><line x1="100" y1="100" x2="100" y2="34" stroke="var(--text)" stroke-width="4" stroke-linecap="round"/></g>
+            <circle cx="100" cy="100" r="7" fill="var(--text)"/>
+            <text id="gnum" class="gnum" x="100" y="148" text-anchor="middle" style="paint-order:stroke" stroke="var(--panel)" stroke-width="6">0</text>
+          </svg>
+          <div class="gstate" id="gstate">Calm</div>
+          <p class="gcap">How strongly the face is reacting compared with its own resting baseline. Nerves, excitement, concentration and fibbing can all push it up.</p>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Face zones">
+        <div class="head"><h2>Where the face is moving</h2><span class="badge" data-demo>Example</span></div>
+        <div class="rows" id="regions"></div>
+      </section>
+
+      <section class="card" aria-label="Expression">
+        <div class="head"><h2>Expression on show</h2><span class="badge" data-demo>Example</span></div>
+        <div class="rows" id="emos"></div>
+        <p class="hint">What the face displays, which is not always what the person feels.</p>
+      </section>
+
+      <section class="card" aria-label="Timeline">
+        <div class="head"><h2>Reaction over time</h2><span class="badge" data-demo>Example</span></div>
+        <canvas id="tl"></canvas>
+        <div class="tiles">
+          <div class="tile"><b id="sBlink">&ndash;</b><span>blinks a minute</span></div>
+          <div class="tile"><b id="sGaze">0</b><span>gaze darts</span></div>
+          <div class="tile"><b id="sPeak">0</b><span>peak reaction</span></div>
+          <div class="tile"><b id="sTime">0:00</b><span>tracked</span></div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Moments spotted">
+        <div class="head"><h2>Moments spotted, with a science check</h2><span class="badge" data-demo>Example</span></div>
+        <ul class="events" id="events"></ul>
+        <p class="empty" id="noEvents" hidden>Nothing yet. Moments appear here once the baseline is set.</p>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <p><b>How it works.</b> A face model maps 478 points on the face. The first few seconds set a resting baseline. After that the lab watches for movements that stand out from that baseline: brows, eyelids, gaze, nostrils, lips and head.</p>
+    <p><b>What it can't do.</b> Decades of studies have found no facial movement that reliably signals a lie. Treat the gauge as a conversation starter, never as proof.</p>
+    <p>Your video is analysed on this device and is never uploaded, saved or shared. <a href="https://pezzadox.github.io/poker-face-lab/privacy.html" style="color:var(--wire)">Privacy policy</a></p>
+  </footer>
+</div>
+
+<script src="human.js"></script>
+<script>
+"use strict";
+/*DEMO_START*/const DEMO_MESH=[[-0.003,0.147,0.141],[0,0,0],[0,0.047,0.118],[-0.039,-0.256,0.047],[0.005,-0.074,-0.018],[0.012,-0.177,-0.005],[0.03,-0.427,0.099],[-0.415,-0.468,0.265],[0.041,-0.608,0.121],[0.047,-0.704,0.106],[0.072,-1.051,0.121],[-0.003,0.174,0.147],[-0.003,0.187,0.16],[-0.002,0.183,0.177],[-0.004,0.307,0.202],[-0.006,0.331,0.195],[-0.009,0.36,0.187],[-0.012,0.396,0.195],[-0.017,0.468,0.235],[-0.002,0.034,0.024],[-0.065,0.013,0.085],[-0.693,-0.772,0.453],[-0.215,-0.44,0.234],[-0.274,-0.424,0.235],[-0.335,-0.418,0.243],[-0.434,-0.451,0.272],[-0.169,-0.461,0.241],[-0.351,-0.621,0.208],[-0.277,-0.622,0.21],[-0.415,-0.598,0.219],[-0.454,-0.564,0.235],[-0.467,-0.411,0.296],[-0.29,0.543,0.302],[-0.446,-0.491,0.277],[-0.737,-0.472,0.495],[-0.548,-0.452,0.329],[-0.352,-0.146,0.203],[-0.113,0.128,0.146],[-0.106,0.174,0.168],[-0.223,0.121,0.176],[-0.291,0.119,0.222],[-0.187,0.161,0.192],[-0.248,0.151,0.233],[-0.366,0.228,0.313],[-0.058,-0.007,0.004],[-0.06,-0.081,-0.013],[-0.536,-0.602,0.234],[-0.183,-0.298,0.189],[-0.217,-0.076,0.11],[-0.216,-0.119,0.121],[-0.57,-0.184,0.262],[-0.049,-0.175,0.009],[-0.4,-0.679,0.167],[-0.483,-0.651,0.196],[-0.624,-0.891,0.361],[-0.129,-0.655,0.147],[-0.212,-0.6,0.225],[-0.424,0.137,0.313],[-0.7,0.173,0.653],[-0.172,-0.032,0.129],[-0.114,-0.003,0.127],[-0.375,0.133,0.315],[-0.34,0.142,0.305],[-0.523,-0.689,0.208],[-0.226,-0.058,0.136],[-0.284,-0.684,0.149],[-0.302,-0.733,0.133],[-0.341,-1.036,0.182],[-0.583,-0.818,0.283],[-0.31,-0.898,0.153],[-0.581,-0.631,0.263],[-0.652,-0.722,0.364],[-0.111,0.159,0.154],[-0.203,0.147,0.184],[-0.269,0.135,0.225],[-0.157,-0.022,0.139],[-0.359,0.136,0.309],[-0.317,0.198,0.289],[-0.328,0.147,0.304],[-0.131,-0.028,0.066],[-0.235,0.144,0.239],[-0.173,0.156,0.208],[-0.097,0.172,0.185],[-0.129,0.452,0.241],[-0.118,0.378,0.203],[-0.112,0.342,0.196],[-0.106,0.315,0.205],[-0.097,0.295,0.211],[-0.238,0.235,0.26],[-0.251,0.24,0.254],[-0.266,0.252,0.251],[-0.279,0.271,0.261],[-0.335,0.071,0.228],[-0.749,-0.174,0.688],[-0.001,0.042,0.084],[-0.279,0.204,0.289],[-0.299,0.198,0.286],[-0.093,0.03,0.13],[-0.21,-0.024,0.172],[-0.103,0.015,0.127],[-0.261,-0.271,0.206],[-0.388,-0.243,0.221],[-0.232,-0.098,0.148],[-0.515,-0.982,0.267],[-0.475,-0.881,0.213],[-0.43,-0.726,0.165],[-0.309,0.318,0.292],[-0.158,-0.732,0.122],[-0.137,-0.891,0.119],[-0.153,-1.056,0.134],[-0.394,-0.425,0.258],[-0.521,-0.363,0.32],[-0.14,-0.478,0.245],[-0.503,-0.528,0.267],[-0.131,-0.333,0.171],[-0.171,-0.081,0.065],[-0.696,-0.346,0.386],[-0.466,-0.321,0.289],[-0.379,-0.304,0.258],[-0.265,-0.326,0.244],[-0.189,-0.36,0.236],[-0.138,-0.393,0.224],[-0.035,-0.412,0.117],[-0.712,-0.213,0.382],[-0.549,-0.533,0.281],[-0.037,0.027,0.027],[-0.185,-0.228,0.172],[-0.753,-0.484,0.633],[-0.098,-0.426,0.216],[-0.242,-0.103,0.193],[-0.468,-0.489,0.284],[-0.167,-0.134,0.08],[-0.738,-0.004,0.681],[-0.148,-0.498,0.252],[-0.108,-0.16,0.036],[-0.576,0.34,0.45],[-0.561,0.429,0.526],[-0.764,-0.184,0.536],[-0.663,0.245,0.49],[-0.695,-0.607,0.441],[-0.3,0.621,0.328],[-0.029,0.037,0.087],[-0.256,-0.191,0.191],[-0.601,-0.441,0.367],[-0.337,-0.448,0.244],[-0.28,-0.454,0.237],[-0.333,0.202,0.296],[-0.722,-0.072,0.405],[-0.178,0.731,0.338],[-0.374,0.609,0.424],[-0.459,0.531,0.471],[0.06,-0.88,0.108],[-0.037,0.755,0.325],[-0.231,-0.469,0.237],[-0.185,-0.486,0.244],[-0.157,-0.493,0.252],[-0.599,-0.548,0.318],[-0.217,-0.553,0.233],[-0.277,-0.574,0.225],[-0.334,-0.571,0.224],[-0.386,-0.552,0.233],[-0.417,-0.526,0.246],[-0.734,-0.644,0.552],[-0.381,-0.454,0.255],[0,0.079,0.136],[-0.259,0.054,0.19],[-0.172,-0.036,0.111],[-0.108,0.068,0.142],[0.037,-0.521,0.125],[-0.477,0.442,0.42],[-0.39,0.53,0.378],[-0.18,0.685,0.285],[-0.637,0.318,0.593],[-0.171,-0.518,0.244],[-0.088,-0.301,0.11],[-0.034,0.71,0.275],[-0.286,0.679,0.373],[-0.757,-0.029,0.539],[-0.175,0.269,0.233],[-0.187,0.281,0.228],[-0.198,0.303,0.223],[-0.207,0.336,0.232],[-0.233,0.397,0.264],[-0.306,0.14,0.272],[-0.327,0.129,0.273],[-0.346,0.117,0.271],[-0.398,0.094,0.272],[-0.644,-0.036,0.32],[-0.081,-0.376,0.147],[-0.116,-0.555,0.223],[-0.151,-0.546,0.237],[-0.287,0.136,0.275],[-0.653,0.134,0.402],[-0.064,-0.56,0.172],[-0.262,0.464,0.284],[0.018,-0.262,0.032],[-0.038,-0.33,0.078],[0.024,-0.341,0.067],[-0.143,-0.198,0.116],[-0.028,0.636,0.25],[-0.022,0.544,0.243],[-0.148,0.526,0.255],[-0.411,0.27,0.334],[-0.305,-0.058,0.211],[-0.343,0.376,0.314],[-0.484,-0.079,0.229],[-0.385,-0.002,0.234],[-0.554,0.017,0.279],[-0.171,0.613,0.262],[-0.187,-0.172,0.149],[-0.462,0.346,0.371],[-0.374,0.447,0.344],[-0.473,0.167,0.326],[-0.711,0.05,0.431],[-0.561,0.203,0.361],[-0.726,0.115,0.534],[-0.456,0.054,0.269],[-0.134,-0.263,0.144],[-0.152,-0.042,0.057],[-0.199,-0.047,0.106],[-0.118,-0.08,0.025],[-0.172,-0.61,0.204],[-0.277,-0.64,0.191],[-0.368,-0.638,0.192],[-0.44,-0.614,0.207],[-0.487,-0.578,0.231],[-0.499,-0.471,0.301],[-0.756,-0.329,0.519],[-0.425,-0.385,0.278],[-0.354,-0.372,0.258],[-0.273,-0.381,0.245],[-0.203,-0.406,0.239],[-0.153,-0.431,0.239],[-0.119,-0.453,0.236],[-0.751,-0.33,0.675],[-0.2,-0.04,0.129],[-0.093,-0.232,0.079],[-0.105,-0.024,0.024],[-0.069,0.009,0.044],[-0.105,-0.017,0.045],[-0.186,-0.023,0.145],[-0.058,0.019,0.033],[-0.05,0.028,0.086],[-0.127,-0.498,0.248],[-0.096,-0.489,0.228],[-0.073,-0.477,0.202],[-0.434,-0.507,0.259],[-0.475,-0.529,0.258],[0.076,-0.251,0.047],[0.525,-0.427,0.274],[0.065,0.021,0.084],[0.819,-0.7,0.446],[0.325,-0.385,0.228],[0.391,-0.371,0.232],[0.456,-0.367,0.245],[0.546,-0.402,0.283],[0.271,-0.406,0.232],[0.457,-0.586,0.207],[0.376,-0.586,0.205],[0.524,-0.563,0.223],[0.564,-0.526,0.242],[0.591,-0.352,0.309],[0.247,0.57,0.3],[0.553,-0.448,0.288],[0.826,-0.398,0.489],[0.667,-0.398,0.352],[0.385,-0.111,0.199],[0.112,0.139,0.144],[0.104,0.184,0.166],[0.227,0.143,0.173],[0.301,0.147,0.218],[0.189,0.179,0.189],[0.254,0.174,0.229],[0.368,0.263,0.308],[0.06,-0.001,0.004],[0.07,-0.074,-0.013],[0.651,-0.569,0.249],[0.233,-0.277,0.186],[0.232,-0.051,0.108],[0.237,-0.095,0.119],[0.609,-0.129,0.255],[0.073,-0.169,0.008],[0.513,-0.65,0.165],[0.599,-0.621,0.203],[0.762,-0.826,0.354],[0.219,-0.61,0.126],[0.304,-0.56,0.219],[0.437,0.178,0.308],[0.705,0.241,0.648],[0.18,-0.012,0.126],[0.119,0.011,0.126],[0.39,0.168,0.31],[0.355,0.174,0.3],[0.634,-0.663,0.22],[0.238,-0.033,0.134],[0.39,-0.652,0.138],[0.407,-0.706,0.123],[0.486,-1,0.179],[0.708,-0.76,0.277],[0.434,-0.867,0.15],[0.688,-0.601,0.284],[0.768,-0.656,0.357],[0.11,0.169,0.152],[0.206,0.167,0.181],[0.278,0.161,0.22],[0.164,-0.003,0.137],[0.374,0.169,0.305],[0.325,0.227,0.284],[0.342,0.177,0.299],[0.136,-0.011,0.065],[0.243,0.164,0.234],[0.176,0.172,0.205],[0.097,0.181,0.183],[0.098,0.462,0.239],[0.099,0.388,0.2],[0.099,0.352,0.194],[0.097,0.325,0.202],[0.092,0.304,0.208],[0.242,0.257,0.256],[0.254,0.263,0.25],[0.268,0.277,0.246],[0.278,0.296,0.257],[0.347,0.103,0.224],[0.798,-0.1,0.681],[0.288,0.23,0.284],[0.308,0.225,0.282],[0.095,0.041,0.129],[0.22,-0.001,0.17],[0.106,0.027,0.126],[0.308,-0.243,0.202],[0.432,-0.204,0.215],[0.253,-0.073,0.145],[0.658,-0.929,0.262],[0.603,-0.834,0.209],[0.54,-0.703,0.167],[0.299,0.347,0.287],[0.25,-0.699,0.102],[0.259,-0.874,0.119],[0.297,-1.036,0.132],[0.512,-0.375,0.264],[0.655,-0.297,0.338],[0.237,-0.425,0.236],[0.616,-0.486,0.281],[0.184,-0.318,0.169],[0.183,-0.061,0.064],[0.762,-0.277,0.379],[0.609,-0.248,0.3],[0.526,-0.227,0.26],[0.4,-0.247,0.237],[0.31,-0.282,0.224],[0.247,-0.319,0.208],[0.095,-0.406,0.116],[0.758,-0.143,0.375],[0.664,-0.492,0.301],[0.034,0.032,0.026],[0.224,-0.207,0.169],[0.844,-0.409,0.626],[0.199,-0.358,0.198],[0.263,-0.077,0.191],[0.575,-0.443,0.298],[0.188,-0.114,0.078],[0.766,0.068,0.675],[0.239,-0.45,0.246],[0.131,-0.147,0.034],[0.562,0.396,0.446],[0.535,0.483,0.521],[0.811,-0.11,0.529],[0.66,0.309,0.484],[0.8,-0.537,0.434],[0.246,0.648,0.326],[0.027,0.04,0.087],[0.292,-0.164,0.187],[0.717,-0.385,0.397],[0.455,-0.408,0.247],[0.396,-0.41,0.235],[0.341,0.233,0.291],[0.751,-0.003,0.398],[0.107,0.746,0.337],[0.322,0.644,0.421],[0.419,0.576,0.468],[0.34,-0.423,0.233],[0.287,-0.438,0.238],[0.253,-0.444,0.246],[0.707,-0.508,0.345],[0.313,-0.509,0.229],[0.376,-0.53,0.222],[0.438,-0.528,0.224],[0.495,-0.508,0.236],[0.526,-0.482,0.252],[0.845,-0.57,0.545],[0.496,-0.414,0.262],[0.267,0.08,0.187],[0.18,-0.015,0.109],[0.112,0.079,0.141],[0.449,0.489,0.416],[0.349,0.567,0.375],[0.116,0.7,0.284],[0.625,0.38,0.587],[0.263,-0.473,0.238],[0.134,-0.29,0.109],[0.222,0.705,0.371],[0.785,0.043,0.533],[0.173,0.285,0.229],[0.184,0.299,0.224],[0.191,0.321,0.219],[0.196,0.354,0.228],[0.212,0.418,0.26],[0.318,0.168,0.266],[0.34,0.161,0.267],[0.36,0.151,0.266],[0.413,0.132,0.267],[0.668,0.026,0.313],[0.138,-0.365,0.145],[0.202,-0.506,0.209],[0.24,-0.501,0.229],[0.301,0.162,0.27],[0.661,0.197,0.396],[0.15,-0.507,0.149],[0.231,0.487,0.282],[0.086,-0.324,0.077],[0.175,-0.182,0.114],[0.108,0.538,0.253],[0.406,0.311,0.33],[0.325,-0.026,0.208],[0.324,0.409,0.311],[0.511,-0.033,0.223],[0.405,0.036,0.23],[0.572,0.07,0.273],[0.118,0.628,0.26],[0.218,-0.151,0.147],[0.446,0.391,0.367],[0.345,0.483,0.341],[0.48,0.213,0.32],[0.728,0.118,0.424],[0.562,0.257,0.355],[0.737,0.185,0.527],[0.473,0.098,0.263],[0.177,-0.248,0.142],[0.16,-0.023,0.055],[0.21,-0.024,0.104],[0.13,-0.066,0.023],[0.263,-0.568,0.193],[0.379,-0.606,0.185],[0.478,-0.606,0.191],[0.554,-0.582,0.211],[0.601,-0.542,0.241],[0.612,-0.42,0.317],[0.825,-0.254,0.512],[0.554,-0.323,0.287],[0.484,-0.308,0.26],[0.397,-0.315,0.241],[0.316,-0.339,0.231],[0.255,-0.366,0.226],[0.214,-0.391,0.222],[0.822,-0.256,0.667],[0.21,-0.017,0.127],[0.128,-0.221,0.078],[0.108,-0.012,0.023],[0.069,0.017,0.043],[0.108,-0.004,0.044],[0.195,-0.003,0.144],[0.056,0.026,0.032],[0.049,0.033,0.085],[0.217,-0.449,0.239],[0.185,-0.431,0.212],[0.166,-0.416,0.181],[0.542,-0.463,0.268],[0.584,-0.488,0.269],[0.4,-0.467,0.23],[0.335,-0.475,0.23],[0.409,-0.53,0.224],[0.468,-0.46,0.23],[0.392,-0.405,0.235],[-0.321,-0.512,0.23],[-0.253,-0.524,0.23],[-0.335,-0.576,0.224],[-0.391,-0.499,0.23],[-0.307,-0.449,0.237]];const EDGE_FLAT=[34,127,34,139,127,139,0,11,0,37,11,37,231,232,120,231,120,232,37,72,37,39,39,72,121,128,47,121,47,128,121,232,128,232,69,104,67,69,67,104,171,175,148,171,148,175,154,157,154,155,155,157,50,118,50,101,101,118,39,73,39,40,40,73,9,151,108,151,9,108,48,115,115,131,48,131,194,204,204,211,194,211,40,74,40,185,74,185,42,80,42,183,80,183,40,92,92,186,40,186,229,230,118,229,118,230,202,212,212,214,202,214,18,83,17,18,17,83,61,76,61,146,76,146,29,160,29,30,30,160,56,157,157,173,56,173,106,204,106,194,135,214,192,214,135,192,165,203,98,165,98,203,21,71,68,71,21,68,45,51,4,45,4,51,24,144,23,24,23,144,77,146,91,146,77,91,50,205,50,187,187,205,200,201,18,200,18,201,91,106,106,182,91,182,90,91,91,181,90,181,84,85,17,84,17,85,203,206,36,203,36,206,140,171,140,148,39,92,189,193,189,244,193,244,158,159,28,158,28,159,246,247,161,246,161,247,3,236,3,196,196,236,54,68,68,104,54,104,168,193,8,168,8,193,117,228,31,228,31,117,55,193,55,189,97,98,97,99,98,99,47,126,47,100,100,126,79,166,79,218,166,218,26,154,26,155,49,209,49,131,131,209,135,136,136,150,135,150,126,217,47,217,52,223,52,53,53,223,51,134,45,134,170,211,140,170,140,211,69,108,67,108,43,106,43,91,119,230,119,120,120,230,130,226,130,247,226,247,53,63,52,63,20,238,20,242,238,242,46,70,70,156,46,156,62,78,62,96,78,96,46,53,46,63,34,143,34,227,143,227,155,173,133,155,133,173,117,123,111,117,111,123,44,125,19,125,19,44,134,236,51,236,206,216,205,206,205,216,153,154,22,153,22,154,37,167,39,167,201,208,200,208,36,142,100,142,36,100,57,212,57,202,20,60,60,99,20,99,157,158,28,157,35,226,113,226,35,113,159,160,27,159,27,160,202,204,202,210,204,210,113,225,46,225,46,113,43,202,43,204,62,76,76,77,62,77,123,137,116,123,116,137,38,41,38,72,41,72,129,203,129,142,142,203,64,98,98,240,64,240,49,102,64,102,49,64,41,73,73,74,41,74,212,216,207,216,207,212,42,74,74,184,42,184,169,170,169,211,149,170,149,176,170,176,66,105,66,69,69,105,6,122,6,168,122,168,123,147,147,187,123,187,77,96,77,90,90,96,55,65,55,107,65,107,89,90,90,180,89,180,100,101,100,120,101,120,63,105,104,105,63,104,93,137,137,227,93,227,15,86,85,86,15,85,102,129,49,129,14,87,86,87,14,86,8,55,8,9,9,55,100,121,23,145,22,23,22,145,88,89,89,179,88,179,122,196,6,196,88,95,95,96,88,96,138,172,136,172,136,138,58,215,58,172,172,215,48,219,115,219,80,81,42,81,3,195,3,51,51,195,43,146,43,61,175,199,171,199,81,82,38,82,38,81,53,225,144,163,110,163,110,144,33,246,7,33,7,246,52,65,65,66,52,66,228,229,117,229,127,234,34,234,107,108,69,107,108,109,109,151,48,64,64,235,48,235,78,191,62,191,129,209,126,209,126,129,35,111,35,143,111,143,161,163,163,246,50,123,50,117,65,222,52,222,125,141,19,141,55,221,65,221,195,197,3,197,7,25,25,33,220,237,44,237,44,220,70,71,71,139,70,139,122,193,193,245,122,245,33,130,33,247,21,162,71,162,153,158,153,159,150,169,150,170,174,188,174,196,188,196,186,216,92,216,144,160,160,161,144,161,2,97,97,167,2,167,125,241,141,241,164,167,37,164,12,38,12,72,145,159,145,160,13,82,13,38,63,68,63,71,111,226,154,158,101,205,92,206,92,165,165,206,198,209,198,217,209,217,165,167,97,165,115,220,115,218,218,220,112,133,112,243,133,243,238,239,238,241,239,241,135,169,169,214,173,190,133,190,171,208,32,208,32,171,125,237,87,178,86,178,86,179,85,179,85,180,84,180,83,84,84,181,83,181,83,201,83,182,182,201,93,132,132,137,62,183,76,183,76,184,61,184,57,61,61,185,57,185,57,186,186,212,207,214,187,207,187,214,143,156,34,156,79,239,237,239,79,237,137,177,123,177,1,44,1,4,4,44,194,201,32,194,32,201,64,129,213,215,138,215,138,213,59,166,166,219,59,219,99,242,97,242,2,94,94,141,2,141,59,75,59,235,75,235,24,110,110,228,24,228,25,130,25,226,24,229,23,229,23,230,22,230,22,26,22,231,26,231,26,112,26,232,112,232,189,190,190,243,189,243,56,221,56,190,190,221,28,56,28,221,27,28,28,222,27,222,27,29,27,223,29,223,29,224,30,224,30,247,30,225,225,247,79,238,20,79,75,166,60,75,75,240,60,240,147,177,177,215,147,215,20,166,147,213,187,213,112,233,233,244,112,244,128,233,128,245,233,245,114,128,114,188,128,188,114,217,174,217,114,174,131,220,198,236,217,236,131,198,131,134,134,198,132,177,58,132,58,177,35,124,124,143,7,163,7,110,25,110,25,228,356,389,368,389,356,368,11,302,267,302,11,267,350,452,349,350,349,452,302,303,269,303,269,302,343,357,277,343,277,357,452,453,357,453,357,452,332,333,297,332,297,333,152,175,152,377,175,377,384,398,382,398,382,384,347,348,330,348,330,347,303,304,270,304,270,303,9,336,336,337,9,337,278,279,279,360,278,360,262,418,262,431,418,431,304,408,408,409,304,409,310,415,407,415,310,407,270,409,409,410,270,410,348,450,347,450,422,430,430,434,422,434,313,314,17,314,17,313,306,307,307,375,306,375,387,388,260,388,260,387,286,414,398,414,286,398,335,406,406,418,335,418,364,367,367,416,364,416,358,423,327,358,327,423,251,284,284,298,251,298,5,281,4,5,4,281,373,374,253,374,253,373,307,320,320,321,307,321,425,427,411,427,411,425,313,421,18,313,18,421,321,405,405,406,321,406,320,404,404,405,320,405,16,315,16,17,17,315,425,426,266,425,266,426,377,400,369,400,369,377,322,391,269,391,269,322,417,465,464,465,417,464,257,386,257,258,258,386,260,466,388,466,399,456,399,419,419,456,284,332,284,333,285,417,8,285,8,417,340,346,261,340,261,346,413,441,285,441,285,413,327,460,328,460,327,328,355,371,329,371,329,355,392,439,438,439,392,438,341,382,256,341,256,382,420,429,360,420,360,429,364,394,379,394,364,379,343,437,277,437,443,444,283,444,283,443,275,440,363,440,275,363,262,369,369,431,297,338,337,338,297,337,273,375,321,375,273,321,450,451,349,451,349,450,342,446,342,467,446,467,293,334,282,334,282,293,458,461,461,462,458,462,276,353,353,383,276,383,308,324,324,325,308,325,276,300,293,300,276,293,345,372,345,447,372,447,362,398,362,382,345,352,340,345,340,352,1,274,1,19,19,274,248,456,248,281,281,456,427,436,425,436,256,381,252,256,252,381,391,393,269,393,199,200,199,428,200,428,266,330,329,330,266,329,273,287,273,422,287,422,250,462,328,462,250,328,258,286,286,384,258,384,265,353,342,353,265,342,259,387,257,259,257,387,424,431,430,431,424,430,276,342,273,335,335,424,273,424,292,325,307,325,292,307,366,447,345,366,271,303,271,302,266,423,266,371,371,423,294,455,455,460,294,460,278,294,279,294,271,272,272,304,271,304,432,434,427,434,427,432,272,407,407,408,272,408,394,430,394,431,369,395,395,400,333,334,299,333,299,334,351,417,168,417,168,351,280,352,280,411,352,411,319,325,319,320,320,325,295,296,296,336,295,336,319,403,403,404,319,404,348,349,330,349,293,298,298,333,293,333,323,454,447,454,323,447,15,16,15,315,358,429,279,429,279,358,14,15,15,316,14,316,285,336,9,285,329,349,329,350,374,380,252,380,252,374,318,402,402,403,318,403,6,197,197,419,6,419,318,319,318,325,364,365,365,367,367,435,367,397,397,435,344,438,344,439,271,311,272,311,5,195,195,281,287,291,273,291,396,428,199,396,268,271,268,311,444,445,283,445,254,373,254,339,339,373,263,466,249,466,249,263,296,334,282,296,347,449,346,347,346,449,264,447,264,454,296,299,299,336,10,338,10,151,151,338,278,439,439,455,278,455,292,407,292,415,358,371,355,358,340,372,249,390,390,466,280,347,280,346,442,443,282,443,282,442,19,94,94,370,19,370,441,442,295,442,295,441,248,419,197,248,255,263,255,359,263,359,274,275,274,440,300,383,368,383,300,368,351,412,412,465,351,465,263,467,466,467,301,368,301,389,374,386,380,386,378,395,378,379,379,395,351,419,412,419,426,436,322,426,322,436,373,390,388,390,373,388,2,164,164,393,2,393,370,462,370,461,0,164,0,267,164,267,11,12,12,302,373,387,374,387,12,268,12,13,13,268,300,301,293,301,261,446,340,446,384,385,381,384,381,385,330,425,423,426,391,423,391,426,355,429,355,437,429,437,327,391,326,327,326,391,440,457,438,457,438,440,341,362,457,459,457,461,459,461,394,434,414,463,362,463,362,414,369,396,262,396,354,461,354,457,316,403,316,402,315,404,315,403,314,405,314,404,313,406,313,405,418,421,406,421,366,401,361,401,361,366,306,408,306,407,291,409,291,408,287,410,287,409,432,436,410,436,410,432,416,434,411,416,411,434,264,368,264,383,309,438,309,457,352,376,376,401,352,401,4,275,4,274,421,428,262,428,262,421,294,327,294,358,416,433,367,433,289,455,289,439,326,370,326,462,2,326,2,370,305,460,305,455,254,449,448,449,254,448,255,261,255,446,253,450,449,450,253,449,252,451,252,450,256,452,451,452,256,451,341,453,341,452,413,464,463,464,413,463,413,414,414,441,258,442,258,441,257,443,257,442,259,444,259,443,260,445,260,444,342,445,445,467,458,459,250,458,250,459,289,392,290,392,289,290,290,328,290,460,376,433,433,435,376,435,250,290,250,392,411,433,341,463,341,464,453,464,453,465,357,465,357,412,343,412,399,412,343,399,360,363,360,440,399,437,437,456,420,456,363,456,363,420,401,435,288,435,288,401,372,383,353,372,255,339,249,255,249,339,261,448,255,448,112,155,359,467,260,467,60,166,127,162,139,162,11,72,120,121,72,73,47,114,232,233,103,104,67,103,148,152,118,119,101,119,9,107,48,49,32,211,184,185,80,191,183,191,185,186,210,214,30,161,182,194,135,138,138,192,98,129,21,54,5,51,144,145,205,207,181,182,180,181,16,85,36,205,148,176,140,176,39,165,244,245,174,236,54,103,31,111,189,221,99,240,126,142,218,219,223,224,53,224,45,220,134,220,32,140,67,109,230,231,113,247,52,105,241,242,46,124,124,156,78,95,63,70,116,143,116,227,111,116,199,208,36,101,43,57,113,124,210,211,235,240,41,42,183,184,169,210,89,96,66,107,179,180,93,234,227,234,145,153,88,178,178,179,196,197,41,81,224,225,117,118,10,109,219,235,222,223,221,222,44,45,139,156,122,188,188,245,149,150,141,242,31,226,218,237,237,241,187,192,192,213,97,141,25,31,243,244,264,356,267,269,350,357,277,350,297,299,175,396,377,396,381,382,280,330,269,270,151,337,278,344,344,360,418,424,272,310,270,322,322,410,422,432,291,306,291,375,259,260,364,434,251,301,298,301,275,281,253,254,280,425,200,421,321,335,314,315,413,417,385,386,258,385,346,448,326,328,277,355,277,329,309,392,365,379,282,283,281,363,395,431,299,337,359,446,283,293,292,308,276,283,264,372,346,352,274,354,19,354,380,381,267,393,287,432,265,446,386,387,422,424,276,445,292,306,352,366,268,302,279,331,294,331,394,395,378,400,6,351,376,411,285,295,323,366,315,316,331,358,14,317,316,317,252,253,318,324,365,397,288,397,310,311,195,248,311,312,268,312,339,390,282,295,356,454,308,415,265,340,265,372,354,370,274,457,251,389,380,385,326,393,13,312,420,437,344,440,317,402,323,361,309,459,289,305,339,448,286,441,250,309,290,305,288,361];/*DEMO_END*/
+
+const $=id=>document.getElementById(id);
+const REG=['Brows','Eyes','Nose','Mouth','Jaw & head'];
+const ANCH=[[70,63,105,66,107,336,296,334,293,300],[33,133,159,145,362,263,386,374],[1,2,98,327,6,197,4],[61,291,0,17,13,14,37,267,84,314],[152,172,397,136,365,148,377,176,400]];
+const EMOS=[['happy','Happy'],['surprise','Surprise'],['neutral','Neutral'],['sad','Sad'],['angry','Angry'],['fear','Fear'],['disgust','Disgust']];
+const EVT={
+  blink:{name:'Blink burst',reg:1,note:'Blinking follows mental effort and stress. Studies linking it to lying are mixed.'},
+  gaze:{name:'Gaze dart',reg:1,note:'The tale says looking up and left means lying. Experiments in 2012 tested it and found no link.'},
+  brow:{name:'Brow flash',reg:0,note:'Raised brows usually mark surprise or emphasis while talking.'},
+  furrow:{name:'Brow furrow',reg:0,note:'Mostly concentration or confusion.'},
+  nose:{name:'Nostril flare',reg:2,note:'Tied to effort and arousal, such as a deeper breath.'},
+  lip:{name:'Lip press',reg:3,note:'Often read as holding something back. Just as common when concentrating.'},
+  smile:{name:'Smile flicker',reg:3,note:'Brief smiles show up with nerves, politeness and real amusement alike.'},
+  head:{name:'Head jolt',reg:4,note:'People move their heads to stress a point. No reliable link to lying.'}
+};
+const HEAT=['rgba(185,198,255,.5)','#ffe9a8','#ffb84d','#ff8552','#ff5468'];
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const view=$('view'),ctx=view.getContext('2d'),vid=$('vid');
+const work=document.createElement('canvas'),wctx=work.getContext('2d',{willReadFrequently:false});
+let human=null,ready=false,mode='demo',edges=[],vReg=null,vW=null,busy=false,stream=null,pendingFile=null,lastMesh=null;
+let S=newSession();
+
+function newSession(){return{t:0,last:null,tracked:0,calib:[],base:null,slow:{},act:[0,0,0,0,0],actEma:0,score:0,hist:[],events:[],blinks:[],closed:false,closedAt:0,earMax:0,lastEvt:{},emo:{},peak:0,gaze:0,pings:[],lost:0,done:false};}
+
+/* ---------- geometry ---------- */
+const d3=(m,a,b)=>Math.hypot(m[a][0]-m[b][0],m[a][1]-m[b][1],(m[a][2]||0)-(m[b][2]||0));
+const d2=(m,a,b)=>Math.hypot(m[a][0]-m[b][0],m[a][1]-m[b][1]);
+function along(m,p,a,b){const ux=m[b][0]-m[a][0],uy=m[b][1]-m[a][1];return((m[p][0]-m[a][0])*ux+(m[p][1]-m[a][1])*uy)/(ux*ux+uy*uy||1);}
+function feats(m){
+  const s=d3(m,33,263)||1,f={};
+  f.earL=d3(m,159,145)/(d3(m,33,133)||1);f.earR=d3(m,386,374)/(d3(m,362,263)||1);
+  f.browL=d3(m,105,159)/s;f.browR=d3(m,334,386)/s;f.furrow=d3(m,107,336)/s;
+  f.mouthW=d3(m,61,291)/s;f.mouthOpen=d3(m,13,14)/s;f.lipH=d3(m,0,17)/s;
+  f.nostril=d3(m,98,327)/s;
+  if(m.length>473){f.gazeX=(along(m,473,33,133)+along(m,468,362,263))/2;f.gazeY=(along(m,473,159,145)+along(m,468,386,374))/2;}
+  else{f.gazeX=.5;f.gazeY=.5;}
+  f.roll=Math.atan2(m[263][1]-m[33][1],m[263][0]-m[33][0]);
+  const s2=d2(m,33,263)||1;
+  f.yaw=(d2(m,1,33)-d2(m,1,263))/s2;f.pitch=(m[1][1]-(m[33][1]+m[263][1])/2)/s2;
+  return f;
+}
+const FLOOR={earL:.03,earR:.03,browL:.012,browR:.012,furrow:.012,mouthW:.02,mouthOpen:.03,lipH:.02,nostril:.008,gazeX:.035,gazeY:.06,roll:.03,yaw:.06,pitch:.04};
+const GROUP=[['browL','browR','furrow'],['gazeX','gazeY'],['nostril'],['mouthW','lipH','mouthOpen'],['yaw','pitch','roll']];
+const WEIGHT={mouthOpen:.5};
+
+function floatMesh(face,W,H){const r=face.meshRaw,m=face.mesh;if(!r||r.length!==m.length)return m;let k=0,n=0;for(let i=0;i<m.length;i+=7){if(Math.abs(r[i][2])>1e-4){k+=m[i][2]/r[i][2];n++;}}k=n?k/n:W;return r.map(p=>[p[0]*W,p[1]*H,p[2]*k]);}
+function normMesh(m){const s=d3(m,33,263)||1,c=m[1];return m.map(p=>[(p[0]-c[0])/s,(p[1]-c[1])/s,((p[2]||0)-(c[2]||0))/s]);}
+function buildRegions(n){
+  vReg=new Int8Array(n.length).fill(-1);vW=new Float32Array(n.length);
+  for(let v=0;v<n.length;v++){let best=0,br=-1;
+    for(let r=0;r<ANCH.length;r++){const sig=r===4?.2:.13;for(const a of ANCH[r]){if(!n[a])continue;const dx=n[v][0]-n[a][0],dy=n[v][1]-n[a][1];const w=Math.exp(-(dx*dx+dy*dy)/(2*sig*sig));if(w>best){best=w;br=r;}}}
+    if(best>.2){vReg[v]=br;vW[v]=Math.min(1,best*1.2);}
+  }
+}
+function buildEdges(flat){const seen=new Set();edges=[];for(let i=0;i+2<flat.length;i+=3){const t=[flat[i],flat[i+1],flat[i+2]];for(let k=0;k<3;k++){const a=Math.min(t[k],t[(k+1)%3]),b=Math.max(t[k],t[(k+1)%3]);const key=a*1000+b;if(!seen.has(key)){seen.add(key);edges.push(a,b);}}}}
+if(EDGE_FLAT.length){edges=EDGE_FLAT;}
+if(DEMO_MESH.length)buildRegions(DEMO_MESH);
+
+/* ---------- signal processing ---------- */
+function addEvent(type,t){
+  if(!S.base)return;const last=S.lastEvt[type];if(last!==undefined&&t-last<2.5)return;
+  S.lastEvt[type]=t;S.events.push({type,t});S.pings.push({type,t});if(type==='gaze')S.gaze++;renderEvents();
+}
+function step(mesh,t,emotion){
+  const dt=S.last===null?0.05:Math.min(1,Math.max(.001,t-S.last));S.last=t;S.t=t;S.tracked+=dt;
+  const f=feats(mesh),ear=(f.earL+f.earR)/2;
+  S.earMax=Math.max(S.earMax*.999,ear);
+  const openRef=S.base?S.base.mean.ear:S.earMax;
+  const shut=ear<openRef*.68;
+  if(shut&&!S.closed){S.closed=true;S.closedAt=t;}
+  if(!shut&&S.closed){S.closed=false;if(t-S.closedAt<.6){S.blinks.push(t);if(S.base){S.act[1]=Math.max(S.act[1],.45);if(S.blinks.filter(b=>t-b<3).length>=3)addEvent('blink',t);}}}
+  if(!S.base){
+    if(!shut)S.calib.push(Object.assign({ear},f));
+    if(S.tracked>=4&&S.calib.length>=8){const mean={},sd={};for(const k of Object.keys(S.calib[0])){const a=S.calib.map(o=>o[k]);const mu=a.reduce((x,y)=>x+y,0)/a.length;mean[k]=mu;sd[k]=Math.max(Math.sqrt(a.reduce((x,y)=>x+(y-mu)*(y-mu),0)/a.length),FLOOR[k]||.02);S.slow[k]=mu;}S.base={mean,sd};renderEvents();}
+  }else{
+    const z={};const kS=1-Math.exp(-dt/3);
+    for(const k in S.slow){if(!(k in f))continue;z[k]=(f[k]-S.slow[k])/S.base.sd[k];if(!(shut&&(k==='gazeX'||k==='gazeY')))S.slow[k]+=(f[k]-S.slow[k])*kS;}
+    if(shut){z.gazeX=0;z.gazeY=0;}
+    for(let r=0;r<5;r++){let tgt=0;for(const k of GROUP[r]){const a=Math.min(1,Math.max(0,(Math.abs(z[k]||0)-2)/5))*(WEIGHT[k]||1);if(a>tgt)tgt=a;}
+      const tau=tgt>S.act[r]?.08:.7;S.act[r]+=(tgt-S.act[r])*(1-Math.exp(-dt/tau));}
+    const headBusy=Math.max(Math.abs(z.yaw),Math.abs(z.pitch),Math.abs(z.roll))>3;
+    if(headBusy&&Math.max(Math.abs(z.yaw),Math.abs(z.pitch),Math.abs(z.roll))>5)addEvent('head',t);
+    if(!headBusy){
+      if(Math.max(z.browL,z.browR)>4)addEvent('brow',t);
+      if(z.furrow<-4)addEvent('furrow',t);
+      if(Math.abs(z.gazeX)>4||Math.abs(z.gazeY)>4)addEvent('gaze',t);
+      if(z.nostril>4)addEvent('nose',t);
+      if(z.lipH<-4&&f.mouthOpen<S.base.mean.mouthOpen+S.base.sd.mouthOpen)addEvent('lip',t);
+      if(z.mouthW>4&&z.mouthOpen<3)addEvent('smile',t);
+    }
+    const mean=S.act.reduce((x,y)=>x+y,0)/5;S.actEma+=(mean-S.actEma)*(1-Math.exp(-dt/2.5));
+    const ev=Math.min(1,S.events.filter(e=>t-e.t<10).length/6);
+    const tgt=100*Math.min(1,.65*Math.min(1,S.actEma*2.2)+.35*ev);
+    S.score+=(tgt-S.score)*(1-Math.exp(-dt/.6));
+    if(S.score>S.peak)S.peak=S.score;
+    if(!S.hist.length||t-S.hist[S.hist.length-1][0]>=.1)S.hist.push([t,S.score]);
+  }
+  if(emotion){const kE=1-Math.exp(-dt/.5);for(const [k] of EMOS){const hit=emotion.find(e=>e.emotion===k);const v=hit?hit.score:0;S.emo[k]=(S.emo[k]||0)+(v-(S.emo[k]||0))*kE;}}
+}
+
+/* ---------- drawing ---------- */
+function drawMesh(c,P,act,lw){
+  if(!edges.length)return;const B=[[],[],[],[],[]];
+  for(let i=0;i<edges.length;i+=2){const a=edges[i],b=edges[i+1];if(!P[a]||!P[b])continue;let g=0;
+    if(vReg){const ra=vReg[a],rb=vReg[b];if(ra>=0)g=act[ra]*vW[a];if(rb>=0)g=Math.max(g,act[rb]*vW[b]);}
+    B[Math.min(4,Math.floor(g*5))].push(a,b);}
+  c.lineCap='round';
+  for(let k=0;k<5;k++){const L=B[k];if(!L.length)continue;c.beginPath();for(let i=0;i<L.length;i+=2){c.moveTo(P[L[i]][0],P[L[i]][1]);c.lineTo(P[L[i+1]][0],P[L[i+1]][1]);}
+    c.strokeStyle=HEAT[k];c.lineWidth=lw*(1+k*.35);c.shadowColor=HEAT[k];c.shadowBlur=k?lw*(3+k*2):0;c.stroke();}
+  c.shadowBlur=0;
+}
+function spin(n,yaw,cx,cy,sc){const cs=Math.cos(yaw),sn=Math.sin(yaw);return n.map(p=>{const x=p[0]*cs+p[2]*sn,z=-p[0]*sn+p[2]*cs,k=1+z*.12;return[cx+x*sc*k,cy+p[1]*sc*k,z];});}
+function centroid(P,r){let x=0,y=0,n=0;for(const a of ANCH[r]){if(P[a]){x+=P[a][0];y+=P[a][1];n++;}}return[x/(n||1),y/(n||1)];}
+function drawPings(c,P,t,unit){
+  S.pings=S.pings.filter(p=>t-p.t<1.4&&t>=p.t);
+  for(const p of S.pings){const e=EVT[p.type],[x,y]=centroid(P,e.reg),k=(t-p.t)/1.4;
+    c.beginPath();c.arc(x,y,unit*(.15+k*.5),0,7);c.strokeStyle='rgba(255,122,195,'+(1-k)+')';c.lineWidth=unit*.03;c.stroke();
+    c.font='700 '+Math.round(unit*.16)+'px Figtree,system-ui,sans-serif';c.textAlign='center';c.fillStyle='rgba(255,255,255,'+(1-k*k)+')';c.strokeStyle='rgba(18,16,42,'+(1-k*k)+')';c.lineWidth=unit*.04;
+    c.strokeText(e.name,x,y-unit*(.3+k*.3));c.fillText(e.name,x,y-unit*(.3+k*.3));}
+}
+function drawLive(mesh,t){
+  const W=view.width,H=view.height;ctx.drawImage(work,0,0);
+  ctx.fillStyle='rgba(18,16,42,.28)';ctx.fillRect(0,0,W,H);
+  if(!mesh)return;
+  const unit=d2(mesh,33,263)||40,lw=Math.max(.7,unit/70);
+  drawMesh(ctx,mesh,S.act,lw);
+  if(mesh.length>473){ctx.fillStyle='#fff';for(const i of[468,473]){ctx.beginPath();ctx.arc(mesh[i][0],mesh[i][1],lw*1.6,0,7);ctx.fill();}}
+  if(!S.base){let y0=1e9,y1=-1e9,x0=1e9,x1=-1e9;for(const p of mesh){if(p[1]<y0)y0=p[1];if(p[1]>y1)y1=p[1];if(p[0]<x0)x0=p[0];if(p[0]>x1)x1=p[0];}
+    const k=(performance.now()/900)%1,y=y0+(y1-y0)*(k<.5?k*2:2-k*2);const g=ctx.createLinearGradient(x0,0,x1,0);g.addColorStop(0,'rgba(255,184,77,0)');g.addColorStop(.5,'rgba(255,184,77,.9)');g.addColorStop(1,'rgba(255,184,77,0)');ctx.fillStyle=g;ctx.fillRect(x0,y-lw,x1-x0,lw*2);}
+  drawPings(ctx,mesh,t,unit);
+  /* small turning 3D view */
+  const box=Math.round(Math.min(W,H)*.26),bx=W-box-8,by=H-box-8;
+  ctx.fillStyle='rgba(18,16,42,.72)';ctx.strokeStyle='rgba(185,198,255,.35)';ctx.lineWidth=1;ctx.beginPath();ctx.rect(bx,by,box,box);ctx.fill();ctx.stroke();
+  const yaw=reduce?.5:Math.sin(performance.now()/1300)*.75;
+  ctx.save();ctx.beginPath();ctx.rect(bx,by,box,box);ctx.clip();drawMesh(ctx,spin(normMesh(mesh),yaw,bx+box/2,by+box*.47,box*.3),S.act,.6);ctx.restore();
+}
+
+/* ---------- panels ---------- */
+function arc(a,b){const p=v=>{const th=Math.PI*(1-v/100);return(100+80*Math.cos(th)).toFixed(2)+' '+(100-80*Math.sin(th)).toFixed(2);};return'M'+p(a)+' A80 80 0 0 1 '+p(b);}
+$('arcCalm').setAttribute('d',arc(0,34));$('arcStir').setAttribute('d',arc(36,64));$('arcHot').setAttribute('d',arc(66,100));
+$('regions').innerHTML=REG.map((r,i)=>'<div class="row"><span>'+r+'</span><div class="bar"><i id="rb'+i+'"></i></div><span class="v" id="rv'+i+'">0</span></div>').join('');
+$('emos').innerHTML=EMOS.map(([k,n])=>'<div class="row"><span>'+n+'</span><div class="bar"><i id="eb'+k+'"></i></div><span class="v" id="ev'+k+'">0%</span></div>').join('');
+const fmt=t=>Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
+function renderPanels(st,calibrating){
+  const v=Math.round(st.score);$('needle').setAttribute('transform','rotate('+(-90+1.8*st.score).toFixed(1)+' 100 100)');
+  $('gnum').textContent=calibrating?'…':v;
+  const gs=$('gstate');if(calibrating){gs.textContent='Reading baseline';gs.style.color='var(--muted)';}
+  else if(v<35){gs.textContent='Calm';gs.style.color='var(--calm)';}else if(v<65){gs.textContent='Stirred';gs.style.color='var(--stir)';}else{gs.textContent='Rattled';gs.style.color='var(--hot)';}
+  for(let i=0;i<5;i++){const a=st.act[i],el=$('rb'+i);el.style.width=Math.round(a*100)+'%';el.style.background=HEAT[Math.min(4,Math.floor(a*5))].startsWith('rgba')?'var(--wire)':HEAT[Math.min(4,Math.floor(a*5))];$('rv'+i).textContent=Math.round(a*100);}
+  for(const [k] of EMOS){const e=st.emo[k]||0;$('eb'+k).style.width=Math.round(e*100)+'%';$('ev'+k).textContent=Math.round(e*100)+'%';}
+  const win=Math.min(30,st.tracked),n=st.blinks.filter(b=>st.t-b<30).length;
+  $('sBlink').textContent=st.tracked>5?Math.round(n*60/win):'–';$('sGaze').textContent=st.gaze;$('sPeak').textContent=Math.round(st.peak);$('sTime').textContent=fmt(st.tracked);
+  drawTimeline(st);
+}
+function drawTimeline(st){
+  const c=$('tl'),dpr=Math.min(2,window.devicePixelRatio||1),w=c.clientWidth,h=c.clientHeight;if(!w)return;
+  if(c.width!==Math.round(w*dpr)){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);}
+  const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+  const pad=6,Y=v=>h-pad-(h-2*pad)*v/100;
+  g.strokeStyle='rgba(185,198,255,.14)';g.lineWidth=1;g.setLineDash([3,4]);for(const v of[35,65]){g.beginPath();g.moveTo(0,Y(v));g.lineTo(w,Y(v));g.stroke();}g.setLineDash([]);
+  const H=st.hist;if(H.length<2)return;
+  let t0,t1;if(st.span){t0=0;t1=st.span;}else{t1=H[H.length-1][0];t0=Math.max(H[0][0],t1-60);if(t1-t0<10)t1=t0+10;}
+  const X=t=>(t-t0)/(t1-t0)*w;
+  const grad=g.createLinearGradient(0,Y(100),0,Y(0));grad.addColorStop(0,'#ff5468');grad.addColorStop(.5,'#ffb84d');grad.addColorStop(1,'#43e0a0');
+  g.beginPath();let first=true,lx=0;for(const [t,v] of H){if(t<t0)continue;const x=X(t);if(first){g.moveTo(x,Y(v));first=false;}else g.lineTo(x,Y(v));lx=x;}
+  g.strokeStyle=grad;g.lineWidth=2.5;g.lineJoin='round';g.stroke();
+  g.lineTo(lx,h);g.lineTo(X(Math.max(t0,H[0][0])),h);g.closePath();g.globalAlpha=.16;g.fillStyle=grad;g.fill();g.globalAlpha=1;
+  for(const e of st.events){if(e.t<t0)continue;g.fillStyle='#ff7ac3';g.fillRect(X(e.t)-1,pad,2,7);}
+  const L=H[H.length-1];g.beginPath();g.arc(Math.min(w-4,X(L[0])),Y(L[1]),4,0,7);g.fillStyle='#fff';g.fill();
+}
+function renderEvents(st){
+  st=st||S;const ul=$('events'),ev=st.events.slice(-10).reverse();
+  ul.innerHTML=ev.map(e=>{const d=EVT[e.type];return'<li><time>'+fmt(e.t)+'</time><div><b>'+d.name+' <small>· '+REG[d.reg]+'</small></b><small>'+d.note+'</small></div></li>';}).join('');
+  $('noEvents').hidden=ev.length>0;
+}
+function setChip(s,text){$('chip').dataset.s=s;$('chipText').textContent=text;}
+function setDemoBadges(on){document.querySelectorAll('[data-demo]').forEach(b=>b.hidden=!on);}
+
+/* ---------- demo (shown until a clip is loaded) ---------- */
+const DEMO={t:0,tracked:42,act:[0,0,0,0,0],score:20,hist:[],events:[{type:'brow',t:9},{type:'gaze',t:21},{type:'lip',t:33}],blinks:[],emo:{},peak:71,gaze:1,span:45};
+(function(){for(let t=0;t<=42;t+=.5){const v=22+18*Math.sin(t/5)+30*Math.exp(-Math.pow((t-21)/4,2))+22*Math.exp(-Math.pow((t-33)/3,2));DEMO.hist.push([t,Math.max(4,Math.min(96,v))]);}for(let t=14;t<42;t+=3.3)DEMO.blinks.push(t);DEMO.t=42;})();
+function demoFrame(now){
+  const W=view.width,H=view.height,t=now/1000;
+  ctx.fillStyle='#0b0a1c';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(185,198,255,.07)';ctx.lineWidth=1;for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  const ph=reduce?1.2:t;
+  for(let r=0;r<5;r++)DEMO.act[r]=Math.max(0,Math.sin(ph*.9+r*1.7))**4*.95;
+  DEMO.score=38+30*Math.sin(ph*.45)+8*Math.sin(ph*1.3);
+  const e={happy:.25+.2*Math.sin(ph*.3),surprise:.12+.1*Math.sin(ph*.5+1),neutral:.45,sad:.04,angry:.03,fear:.05,disgust:.02};DEMO.emo=e;
+  if(DEMO_MESH.length){drawMesh(ctx,spin(DEMO_MESH,reduce?.3:Math.sin(t*.6)*.55,W/2,H*.47,W*.37),DEMO.act,1.3);}
+  else{ctx.fillStyle='#aaa4d8';ctx.font='16px Figtree,system-ui';ctx.textAlign='center';ctx.fillText('Upload a clip to map a face',W/2,H/2);}
+  renderPanels(DEMO,false);
+}
+
+/* ---------- sources ---------- */
+function sizeWork(w,h){const k=Math.min(1,640/Math.max(w,h));work.width=view.width=Math.round(w*k);work.height=view.height=Math.round(h*k);}
+function stopAll(){if(stream){stream.getTracks().forEach(x=>x.stop());stream=null;}vid.pause();if(vid.src&&vid.src.startsWith('blob:'))URL.revokeObjectURL(vid.src);vid.removeAttribute('src');vid.srcObject=null;}
+function begin(m){mode=m;S=newSession();setDemoBadges(false);renderEvents();$('noEvents').hidden=false;$('playBtn').hidden=false;$('playBtn').textContent='Pause';$('againBtn').hidden=m!=='file';setChip('calib','Looking for a face');}
+async function openFile(file){
+  if(!ready){pendingFile=file;$('hint').textContent='Clip chosen. It starts as soon as the face model has loaded.';return;}
+  $('hint').textContent='Opening '+(file.name||'your clip')+'…';
+  stopAll();vid.muted=true;vid.src=URL.createObjectURL(file);
+  const got=new Promise((ok,no)=>{const done=()=>{if(vid.videoWidth)ok();};vid.onloadedmetadata=done;vid.onloadeddata=done;vid.oncanplay=done;vid.onerror=()=>no(new Error('format'));setTimeout(()=>vid.videoWidth?ok():no(new Error('slow')),12000);});
+  vid.load();const started=vid.play().catch(()=>{});
+  try{await got;}
+  catch(e){$('hint').textContent=e.message==='slow'?'The clip did not open after 12 seconds. Try a shorter clip.':'This browser could not play that clip. Try recording a new one, or use an MP4.';return;}
+  sizeWork(vid.videoWidth,vid.videoHeight);begin('file');S.span=isFinite(vid.duration)?vid.duration:0;
+  $('hint').textContent='Playing. The first 4 seconds set the baseline, so start with a relaxed face.';
+  await started;if(vid.paused){try{await vid.play();}catch(e){$('playBtn').textContent='Play';$('hint').textContent='Tap Play to start the clip.';}}
+}
+async function openCamera(){
+  if(!ready)return;stopAll();
+  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});}
+  catch(e){$('hint').textContent='The camera is blocked here. Upload a clip instead.';return;}
+  vid.srcObject=stream;await vid.play();sizeWork(vid.videoWidth,vid.videoHeight);begin('camera');
+  $('hint').textContent='Relax and look at the camera for 4 seconds to set the baseline.';
+}
+for(const id of['file','rec'])$(id).addEventListener('change',e=>{const f=e.target.files[0];if(f)openFile(f);e.target.value='';});
+$('camBtn').addEventListener('click',openCamera);
+$('playBtn').addEventListener('click',()=>{if(vid.paused){if(vid.ended)restart();else vid.play();$('playBtn').textContent='Pause';}else{vid.pause();$('playBtn').textContent='Play';}});
+function restart(){const span=S.span;S=newSession();S.span=span;renderEvents();vid.currentTime=0;vid.play();$('playBtn').textContent='Pause';}
+$('againBtn').addEventListener('click',restart);
+vid.addEventListener('ended',()=>{S.done=true;$('playBtn').textContent='Play again';setChip('demo','Clip finished');});
+
+/* ---------- main loop ---------- */
+async function tick(now){
+  if(mode==='demo'){demoFrame(now);requestAnimationFrame(tick);return;}
+  if(!busy&&vid.readyState>=2&&!vid.paused&&!vid.ended){
+    busy=true;
+    try{
+      const W=work.width,H=work.height;
+      if(mode==='camera'){wctx.save();wctx.translate(W,0);wctx.scale(-1,1);wctx.drawImage(vid,0,0,W,H);wctx.restore();}else wctx.drawImage(vid,0,0,W,H);
+      const t=mode==='file'?vid.currentTime:now/1000;
+      const res=await human.detect(work);const face=res.face&&res.face[0];
+      if(face&&face.mesh&&face.mesh.length>=468){
+        if(!edges.length&&human.faceTriangulation)buildEdges(human.faceTriangulation);
+        if(!vReg)buildRegions(normMesh(face.mesh));
+        const fm=floatMesh(face,W,H);lastMesh=fm;S.lost=0;step(fm,t,face.emotion);drawLive(fm,t);
+        if(S.base)setChip('track','Tracking');else setChip('calib','Reading baseline '+Math.max(1,Math.ceil(4-S.tracked))+'s');
+      }else{S.lost++;S.last=null;drawLive(null,t);if(S.lost>4)setChip('lost','No face in view');}
+      renderPanels(S,!S.base);
+    }catch(err){console.error(err);$('hint').textContent='Something went wrong reading that frame: '+err.message;}
+    busy=false;
+  }
+  requestAnimationFrame(tick);
+}
+
+function cameraAllowed(){if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return false;try{if(document.featurePolicy)return document.featurePolicy.allowsFeature('camera');}catch(e){}return window.self===window.top;}
+
+async function init(){
+  renderEvents(DEMO);requestAnimationFrame(tick);
+  try{
+    const H=window.Human&&(window.Human.Human||window.Human.default);if(!H)throw new Error('library missing');
+    human=new H({backend:'humangl',modelBasePath:'./models/',debug:false,cacheSensitivity:0,filter:{enabled:false},
+      face:{enabled:true,detector:{maxDetected:1,rotation:false,minConfidence:.3},mesh:{enabled:true},iris:{enabled:true},attention:{enabled:false},emotion:{enabled:true,minConfidence:.02,skipFrames:6},description:{enabled:false},antispoof:{enabled:false},liveness:{enabled:false}},
+      body:{enabled:false},hand:{enabled:false},object:{enabled:false},gesture:{enabled:false},segmentation:{enabled:false}});
+    await human.load();ready=true;
+    const cam=cameraAllowed();$('camBtn').hidden=!cam;const touch=matchMedia('(pointer: coarse)').matches;$('recBtn').hidden=cam||!touch;
+    $('hint').textContent=cam?'Ready. Upload a short clip of a face, or use the camera.':touch?'Ready. Record a short clip with your camera, or upload one.':'Ready. Upload a short clip of a face.';
+    if(pendingFile){const f=pendingFile;pendingFile=null;openFile(f);}
+  }catch(err){console.error(err);$('hint').textContent='The face model could not start on this device ('+err.message+').';}
+}
+init();
+</script>
+</body>
+</html>
